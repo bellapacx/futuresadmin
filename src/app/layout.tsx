@@ -3,14 +3,13 @@ import "./globals.css";
 import { AdminGuard } from "@/components/admin-guard";
 import { AdminShell } from "@/components/admin-shell";
 import { ThemeProvider } from "@/lib/theme";
+import { ToastProvider } from "@/components/ui/toast"; // ← new
 
 export const metadata: Metadata = {
   title: "Futures Admin",
   description: "Admin dashboard",
 };
 
-// Inline script: runs before paint, sets .dark on <html> from storage
-// so there's no flash-of-light on first load.
 const THEME_INIT = `
 (function() {
   try {
@@ -32,9 +31,13 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen antialiased bg-background text-foreground">
         <ThemeProvider>
-          <AdminGuard>
-            <AdminShell>{children}</AdminShell>
-          </AdminGuard>
+          <ToastProvider>
+            {" "}
+            {/* ← new */}
+            <AdminGuard>
+              <AdminShell>{children}</AdminShell>
+            </AdminGuard>
+          </ToastProvider>
         </ThemeProvider>
       </body>
     </html>
