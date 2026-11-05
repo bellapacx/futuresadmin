@@ -20,7 +20,7 @@ export function AdminTopBar() {
   return (
     <header className="flex h-14 items-center justify-between border-b border-border bg-card px-6">
       <div className="text-sm text-muted-foreground">
-        Signed in as <span className="font-mono text-xs">{userId}</span>
+        Signed in as <span className="font-mono text-xs">{role}</span>
       </div>
       <div className="flex items-center gap-3">
         <ThemeToggle /> {/* ← new */}
