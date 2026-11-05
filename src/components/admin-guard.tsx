@@ -1,49 +1,59 @@
 "use client";
 
-import { createClient } from "@/lib/supabase/client";
-import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import { adminApi, type AdminRole } from "@/lib/api/admin";
+import { AdminProvider } from "@/lib/admin-context";
+
+type State =
+  | { kind: "checking" }
+  | { kind: "allowed"; userId: string; role: AdminRole };
 
 export function AdminGuard({ children }: { children: React.ReactNode }) {
   const supabase = createClient();
   const router = useRouter();
   const pathname = usePathname();
-  const [checking, setChecking] = useState(true);
+  const [state, setState] = useState<State>({ kind: "checking" });
 
   useEffect(() => {
-    // Allow /login through without an admin check
     if (pathname === "/login") {
-      setChecking(false);
+      setState({ kind: "checking" }); // will be replaced by children render
       return;
     }
-
-    async function check() {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) {
-        router.replace("/login");
-        return;
-      }
-
-      // Ask backend if this user is an admin
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/overview`,
-        { headers: { Authorization: `Bearer ${session.access_token}` } },
-      );
-
-      if (res.status === 403 || res.status === 401) {
+    let cancelled = false;
+    (async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session) {
+          if (!cancelled) router.replace("/login");
+          return;
+        }
+        const overview = await adminApi.overview();
+        if (cancelled) return;
+        setState({
+          kind: "allowed",
+          userId: overview.admin_user_id,
+          role: overview.admin_role,
+        });
+      } catch {
+        // Any failure (401, 403, 404, network) → deny
         await supabase.auth.signOut();
-        router.replace("/login");
-        return;
+        if (!cancelled) router.replace("/login");
       }
-
-      setChecking(false);
-    }
-    check();
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [pathname, router, supabase]);
 
-  if (checking) {
+  if (pathname === "/login") {
+    return <>{children}</>;
+  }
+
+  if (state.kind === "checking") {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p className="text-sm text-muted-foreground">Checking access…</p>
@@ -51,5 +61,9 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return <>{children}</>;
+  return (
+    <AdminProvider value={{ userId: state.userId, role: state.role }}>
+      {children}
+    </AdminProvider>
+  );
 }
